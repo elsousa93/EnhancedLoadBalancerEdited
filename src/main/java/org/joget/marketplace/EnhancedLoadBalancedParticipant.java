@@ -43,50 +43,9 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
         //LS - New variables created
         Connection con = null;
         String sql =  null;
-        
-        //LS - DB Inicialization
-        try{
-            Class.forName("com.mysql.jdbc.Driver").newInstance();
-            con = DriverManager.getConnection("jdbc:mysql://localhost:3307/jwdb?characterEncoding=UTF-8", "root", "");
-            LogUtil.info("Application", "Successfully connected to database");
-        }catch(Exception e){
-            LogUtil.error("Application",e, "Error connecting to database");
-        }
-        
-        //LS - Test Query
-        try{
-            sql = "SELECT * FROM app_fd_info_colaboradores WHERE c_user_colaborador='admin'"; // Here you can query from one or multiple tables using JOIN etc
-            PreparedStatement stmt = con.prepareStatement(sql);
-            //stmt.setString(1, recordId);
-            ResultSet rs = stmt.executeQuery();
-            LogUtil.info("Application", "Successfully queried database: " + rs);
-            
-            //Just to print - ELEMINATE after
-            ResultSetMetaData rsmd = rs.getMetaData();
-            int columnsNumber = rsmd.getColumnCount();
-            while (rs.next()) {
-                for (int i = 1; i <= columnsNumber; i++) {
-                    if (i > 1) LogUtil.info("Application", ",  ");
-                    String columnValue = rs.getString(i);
-                    LogUtil.info("Application", columnValue + " " + rsmd.getColumnName(i));
-                }
-                LogUtil.info("Application","");
-            }
-            
-        }catch(Exception runningQuery){
-            LogUtil.error("Application",runningQuery, "Error executing query: " + sql);
-        }
-        
-        
-        //LS - Closing database
-        if (con !=null) {
-            try{
-               con.close(); 
-            }catch(Exception close){
-                LogUtil.error("Application",close, "Error closing connection to database");
-            }
-            
-        };
+        String userListString = "";
+        Collection<User> userListToRemove = new ArrayList<User>();
+        String connectionString = null;
 
         //Get current user's role
         String currentThreadUser = workflowUserManager.getCurrentThreadUser();
@@ -99,7 +58,24 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
         String considerAppOnly = (String) properties.get("getChoiceThisApp");
         String noChooseActivity = (String) properties.get("exclusion");
         String debugMode = (String) properties.get("debugMode");
+        
+        //LS - Get user defined plugin configurations
+        String databaseType = (String) properties.get("getChoiceDatabaseType");
+        String databaseAddress = (String) properties.get("getChoiceDatabaseAddress");
+        String databasePort = (String) properties.get("getChoiceDatabasePort");
+        String databaseUser = (String) properties.get("getChoiceDatabaseUser");
+        String databasePass = (String) properties.get("getChoiceDatabasePass");
+        
+        LogUtil.info("Application", "Databse Type: " + databaseType + " | Database Address: " + databaseAddress + " | Database Port: " + databasePort + " | Database User: " + databaseUser + " | Database Pass: " + databasePass);
 
+        //Configure connection string acording to the configuration information
+        if(databaseType.equals("mySql")){
+            connectionString = "jdbc:mysql://"+ databaseAddress +":"+ databasePort +"/jwdb?characterEncoding=UTF-8";
+            LogUtil.info("Application", "ConnectionString: " + connectionString);
+        }else{
+            LogUtil.info("Application", "Database Not compatible with the plugin");
+        }
+        
         //Config params for getUsers is sensitive to blank string VS NULL value
         if ("".equals(orgId)) {
             orgId = null;
@@ -114,14 +90,70 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
         //Get users of the selection as a list, sort by first name
         Collection<User> userList = directoryManager.getUsers(null, orgId, deptId, null, groupId, null, null, "firstName", false, null, null);
         if("true".equalsIgnoreCase(debugMode)){
-            String userListString = "";
             for (Object u : userList) {
                     User user = (User) u;
-                    userListString += user.getUsername() + ", ";
-                    LogUtil.info(this.getClass().getName(), user.getUsername());
+                    userListString += "'" + user.getUsername() + "'" + ", ";
             }
-            LogUtil.info(this.getClass().getName(), "Userlist - " + userList.size() + " - " + userListString);
         }
+        
+        //LS - After getting the list with all the users it is necessary to eliminate the ones that are absent:
+        if (userList.size() > 0){
+         
+            //LS - Open DB
+            try{
+                Class.forName("com.mysql.jdbc.Driver").newInstance();
+                //con = DriverManager.getConnection("jdbc:mysql://localhost:3307/jwdb?characterEncoding=UTF-8", "root", "");
+                con = DriverManager.getConnection(connectionString, databaseUser, databasePass);
+                
+                LogUtil.info("Application", "Successfully connected to database");
+            }catch(Exception e){
+                LogUtil.error("Application",e, "Error connecting to database");
+            }
+
+            //LS - Querie to get if a certain user is absent
+            try{
+
+                for(Object u : userList){
+                    User user = (User) u;
+                    
+                    //select * from app_fd_j_leave where c_DateFrom < CURDATE() and c_DateTo > CURDATE() and c_ApplicantUsername = 'admin' and c_LeaveStatus = 'Approved';
+                    sql = "SELECT COUNT(*) as flag_ferias from app_fd_j_leave where c_DateFrom < CURDATE() and c_DateTo > CURDATE() and c_ApplicantUsername = ? and c_LeaveStatus = 'Approved'"; 
+                    PreparedStatement stmt = con.prepareStatement(sql);
+                    stmt.setString(1, user.getUsername());
+                    LogUtil.info("Application", "Query: " + sql);
+                    ResultSet rs = stmt.executeQuery();
+                    LogUtil.info("Application", "Successfully queried database: ");
+                    
+                    //Add to a list to remove the rusers thar are absent
+                    while (rs.next()) {
+                        LogUtil.info("Application", rs.getString(1));
+                        if( rs.getString(1).equals("0") == false){
+                            LogUtil.info("Application", "Entrei");
+                            userListToRemove.add(user);
+                        }
+                    }
+                }
+                //Remove the absent users from the original list
+                userList.removeAll(userListToRemove);
+
+            }catch(Exception runningQuery){
+                LogUtil.error("Application",runningQuery, "Error executing query: " + sql);
+            }
+
+
+            //LS - Closing database
+            if (con !=null) {
+                try{
+                   con.close(); 
+                   LogUtil.info("Application", "Closed connection to database");
+                }catch(Exception close){
+                    LogUtil.error("Application",close, "Error closing connection to database");
+                }
+            
+            };
+            
+        }     
+        
         
         //DEFAULT FALLBACK: If selection is empty before OR after filtering, return null as so to let system decide who to assign
         //This gives precedence to rules of "exclude current logged in user" & "Exclude involved users from selected activities"

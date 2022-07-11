@@ -6,7 +6,7 @@
               "label" : "@@form.enhancedLoadBalancedParticipant.orgId@@",
               "type" : "SelectBox",
               "options_ajax" : "[CONTEXT_PATH]/web/json/plugin/org.joget.plugin.enterprise.UserOptionsBinder/service?action=getOptions"
-		  },
+          },
           {
               "name" : "deptId",
               "label" : "@@form.enhancedLoadBalancedParticipant.deptId@@",
@@ -28,6 +28,34 @@
             "options" : [
               {"value": "true", "label" : ""}
             ]
+          },
+          {
+            "name" : "getChoiceDatabaseType",
+            "label" : "@@form.enhancedLoadBalancedParticipant.DatabaseType@@",
+            "type" : "CheckBox",
+            "options" : [
+              {"value": "mySql", "label" : "mySql"}
+            ]
+          },
+          {
+            "name" : "getChoiceDatabaseAddress",
+            "label" : "@@form.enhancedLoadBalancedParticipant.DatabaseAddress@@",
+            "type" : "TextField"
+          },
+          {
+            "name" : "getChoiceDatabasePort",
+            "label" : "@@form.enhancedLoadBalancedParticipant.DatabasePort@@",
+            "type" : "TextField"
+          },
+          {
+            "name" : "getChoiceDatabaseUser",
+            "label" : "@@form.enhancedLoadBalancedParticipant.DatabaseUser@@",
+            "type" : "TextField"
+          },
+                    {
+            "name" : "getChoiceDatabasePass",
+            "label" : "@@form.enhancedLoadBalancedParticipant.DatabasePass@@",
+            "type" : "Password"
           },
           {
               "name" : "getChoiceCurrentUser",
