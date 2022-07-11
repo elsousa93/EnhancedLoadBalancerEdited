@@ -1,3 +1,4 @@
+//added a comment for testing purposes
 package org.joget.marketplace;
 
 import org.joget.apps.app.service.AppUtil;
@@ -15,10 +16,14 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import org.joget.apps.app.service.AppPluginUtil;
+import java.sql.*;
+
+
 
 public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
     
     private final static String MESSAGE_PATH = "messages/enhancedLoadBalancedParticipant";
+    
 
 
     public Collection<String> getActivityAssignments(Map properties) {
@@ -34,6 +39,54 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
         WorkflowUserManager workflowUserManager = (WorkflowUserManager) AppUtil.getApplicationContext().getBean("workflowUserManager");
         WorkflowActivity workflowActivity = (WorkflowActivity) properties.get("workflowActivity");
         User currentUser = directoryManager.getUserByUsername(workflowUserManager.getCurrentUsername());
+        
+        //LS - New variables created
+        Connection con = null;
+        String sql =  null;
+        
+        //LS - DB Inicialization
+        try{
+            Class.forName("com.mysql.jdbc.Driver").newInstance();
+            con = DriverManager.getConnection("jdbc:mysql://localhost:3307/jwdb?characterEncoding=UTF-8", "root", "");
+            LogUtil.info("Application", "Successfully connected to database");
+        }catch(Exception e){
+            LogUtil.error("Application",e, "Error connecting to database");
+        }
+        
+        //LS - Test Query
+        try{
+            sql = "SELECT * FROM app_fd_info_colaboradores WHERE c_user_colaborador='admin'"; // Here you can query from one or multiple tables using JOIN etc
+            PreparedStatement stmt = con.prepareStatement(sql);
+            //stmt.setString(1, recordId);
+            ResultSet rs = stmt.executeQuery();
+            LogUtil.info("Application", "Successfully queried database: " + rs);
+            
+            //Just to print - ELEMINATE after
+            ResultSetMetaData rsmd = rs.getMetaData();
+            int columnsNumber = rsmd.getColumnCount();
+            while (rs.next()) {
+                for (int i = 1; i <= columnsNumber; i++) {
+                    if (i > 1) LogUtil.info("Application", ",  ");
+                    String columnValue = rs.getString(i);
+                    LogUtil.info("Application", columnValue + " " + rsmd.getColumnName(i));
+                }
+                LogUtil.info("Application","");
+            }
+            
+        }catch(Exception runningQuery){
+            LogUtil.error("Application",runningQuery, "Error executing query: " + sql);
+        }
+        
+        
+        //LS - Closing database
+        if (con !=null) {
+            try{
+               con.close(); 
+            }catch(Exception close){
+                LogUtil.error("Application",close, "Error closing connection to database");
+            }
+            
+        };
 
         //Get current user's role
         String currentThreadUser = workflowUserManager.getCurrentThreadUser();
@@ -65,6 +118,7 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
             for (Object u : userList) {
                     User user = (User) u;
                     userListString += user.getUsername() + ", ";
+                    LogUtil.info(this.getClass().getName(), user.getUsername());
             }
             LogUtil.info(this.getClass().getName(), "Userlist - " + userList.size() + " - " + userListString);
         }

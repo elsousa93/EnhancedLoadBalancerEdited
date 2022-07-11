@@ -97,6 +97,11 @@
             <version>2.0</version>
         </dependency>
         <!-- Change plugin specific dependencies here -->
+		<dependency>
+		<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<version>8.0.28</version>
+		</dependency>
         
         <!-- End change plugin specific dependencies here -->
     </dependencies>

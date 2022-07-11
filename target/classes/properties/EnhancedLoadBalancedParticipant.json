@@ -1,0 +1,55 @@
+[{
+	"title" : "@@form.enhancedLoadBalancedParticipant.title@@",
+		"properties" : [
+          {
+              "name" : "orgId",
+              "label" : "@@form.enhancedLoadBalancedParticipant.orgId@@",
+              "type" : "SelectBox",
+              "options_ajax" : "[CONTEXT_PATH]/web/json/plugin/org.joget.plugin.enterprise.UserOptionsBinder/service?action=getOptions"
+		  },
+          {
+              "name" : "deptId",
+              "label" : "@@form.enhancedLoadBalancedParticipant.deptId@@",
+              "type" : "SelectBox",
+              "options_ajax_on_change" : "orgId",
+              "options_ajax" : "[CONTEXT_PATH]/web/json/plugin/org.joget.plugin.enterprise.UserOptionsBinder/service?action=getDeptOptions"
+          },
+          {
+              "name" : "groupId",
+              "label" : "@@form.enhancedLoadBalancedParticipant.groupId@@",
+              "type" : "SelectBox",
+              "options_ajax_on_change" : "orgId",
+              "options_ajax" : "[CONTEXT_PATH]/web/json/plugin/org.joget.plugin.enterprise.UserOptionsBinder/service?action=getGroupOptions"
+          },
+          {
+            "name" : "getChoiceThisApp",
+            "label" : "@@form.enhancedLoadBalancedParticipant.getChoiceThisApp@@",
+            "type" : "CheckBox",
+            "options" : [
+              {"value": "true", "label" : ""}
+            ]
+          },
+          {
+              "name" : "getChoiceCurrentUser",
+              "label" : "@@form.enhancedLoadBalancedParticipant.getChoiceCurrentUser.label@@",
+              "description" : "@@form.enhancedLoadBalancedParticipant.getChoiceCurrentUser.desc@@",
+              "type" : "CheckBox",
+              "options" : [
+                {"value": "true", "label" : ""}
+              ]
+          },
+          {
+            "name" : "exclusion",
+            "label" : "@@form.enhancedLoadBalancedParticipant.exclusion@@",
+            "type" : "MultiSelect",
+            "options_ajax" : "[CONTEXT_PATH]/web/json/app[APP_PATH]/plugin/org.joget.apps.app.lib.UserNotificationAuditTrail/service?action=getActivities"
+          },
+          {
+              "name" : "debugMode",
+              "label" : "@@form.enhancedLoadBalancedParticipant.debugMode@@",
+              "type" : "CheckBox",
+              "options" : [
+                {"value": "true", "label" : ""}
+              ]
+          }]
+}]
