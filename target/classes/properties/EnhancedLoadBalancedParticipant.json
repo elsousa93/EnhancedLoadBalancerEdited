@@ -58,6 +58,19 @@
             "type" : "Password"
           },
           {
+            "name" : "getChoiceAssignToLastPerformer",
+            "label" : "@@form.enhancedLoadBalancedParticipant.AssignToLastPerformer@@",
+            "type" : "CheckBox",
+            "options" : [
+              {"value": "true", "label" : ""}
+            ]
+          },
+          {
+            "name" : "getChoiceLastLanePerformer",
+            "label" : "@@form.enhancedLoadBalancedParticipant.LastLanePerformer@@",
+            "type" : "TextField"
+          },
+          {
               "name" : "getChoiceCurrentUser",
               "label" : "@@form.enhancedLoadBalancedParticipant.getChoiceCurrentUser.label@@",
               "description" : "@@form.enhancedLoadBalancedParticipant.getChoiceCurrentUser.desc@@",

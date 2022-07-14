@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
-Bnd-LastModified: 1657553468324
+Bnd-LastModified: 1657795128391
 Build-Jdk-Spec: 1.8
 Bundle-Activator: org.joget.marketplace.Activator
 Bundle-ClassPath: .,dependency/protobuf-java-3.19.4.jar,dependency/jsp-a

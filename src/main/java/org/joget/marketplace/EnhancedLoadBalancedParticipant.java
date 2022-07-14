@@ -65,7 +65,18 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
         String databasePort = (String) properties.get("getChoiceDatabasePort");
         String databaseUser = (String) properties.get("getChoiceDatabaseUser");
         String databasePass = (String) properties.get("getChoiceDatabasePass");
+        String LastLanePerformer = (String) properties.get("getChoiceLastLanePerformer");
+        String assingToLastUser = (String) properties.get("getChoiceAssignToLastPerformer");
+        boolean assignToLastLaneUser = false;
         
+        //Set variables
+        if(assingToLastUser == null || "".equalsIgnoreCase(assingToLastUser)){
+            assingToLastUser = "false";
+        }
+        sql = "SELECT COUNT(*) as flag_ferias from app_fd_j_leave where c_DateFrom <= CURDATE() and c_DateTo >= CURDATE() and c_ApplicantUsername = ? and c_LeaveStatus = 'Approved'"; 
+        
+        LogUtil.info("Assign to?", "Assign to previous user?: " + assingToLastUser);
+        LogUtil.info("Application", "Last Lane performer: " + LastLanePerformer);
         LogUtil.info("Application", "Databse Type: " + databaseType + " | Database Address: " + databaseAddress + " | Database Port: " + databasePort + " | Database User: " + databaseUser + " | Database Pass: " + databasePass);
 
         //Configure connection string acording to the configuration information
@@ -87,6 +98,66 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
             groupId = null;
         }
 
+        
+        //LS - Assign to the previous user of the lane
+        //Condition to check if the user wants to assign to previous user or not
+        if("true".equalsIgnoreCase(assingToLastUser)){
+            //Condition to check if there is already a previous performer fot this specific lane
+            if(LastLanePerformer != null && !LastLanePerformer.equals("")){
+                
+                //connect to database
+                try{
+                    Class.forName("com.mysql.jdbc.Driver").newInstance();
+                    con = DriverManager.getConnection(connectionString, databaseUser, databasePass);
+                }catch(Exception e){
+                    LogUtil.error("Application",e, "Error connecting to database");
+                }
+                
+                //Check if the last performer is available to recieve task
+                try{
+                    PreparedStatement stmt = con.prepareStatement(sql);
+                    stmt.setString(1, LastLanePerformer);
+                    LogUtil.info("Application", "Query: " + sql);
+                    ResultSet rs = stmt.executeQuery();
+                    LogUtil.info("Application", "Successfully queried database: ");
+
+                    //Add to a list to remove the rusers thar are absent
+                    while (rs.next()) {
+                        LogUtil.info("Application", rs.getString(1));
+                        if( rs.getString(1).equals("0") == false){
+                            LogUtil.info("Application", "Last lane user absent");
+                            assignToLastLaneUser = false;
+                        }else{
+                            LogUtil.info("Application", "Last lane user available");
+                            assignToLastLaneUser = true;
+                        }
+                    }
+                }catch(Exception runningQuery){
+                    LogUtil.error("Application",runningQuery, "Error executing query: " + sql);
+                }
+                
+                //LS - Closing database
+                if (con !=null) {
+                    try{
+                       con.close(); 
+                       LogUtil.info("Application", "Closed connection to database");
+                    }catch(Exception close){
+                        LogUtil.error("Application",close, "Error closing connection to database");
+                    }
+            
+                }
+
+                if(assignToLastLaneUser == true){
+                    LogUtil.info("BeanShell Assign to", "Assign to previous user: " + LastLanePerformer);
+                    assignTo = LastLanePerformer;
+                    assignees.add(assignTo);
+                    return assignees;
+                }
+            }
+        }
+
+        
+        
         //Get users of the selection as a list, sort by first name
         Collection<User> userList = directoryManager.getUsers(null, orgId, deptId, null, groupId, null, null, "firstName", false, null, null);
         if("true".equalsIgnoreCase(debugMode)){
@@ -116,8 +187,6 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
                 for(Object u : userList){
                     User user = (User) u;
                     
-                    //select * from app_fd_j_leave where c_DateFrom < CURDATE() and c_DateTo > CURDATE() and c_ApplicantUsername = 'admin' and c_LeaveStatus = 'Approved';
-                    sql = "SELECT COUNT(*) as flag_ferias from app_fd_j_leave where c_DateFrom < CURDATE() and c_DateTo > CURDATE() and c_ApplicantUsername = ? and c_LeaveStatus = 'Approved'"; 
                     PreparedStatement stmt = con.prepareStatement(sql);
                     stmt.setString(1, user.getUsername());
                     LogUtil.info("Application", "Query: " + sql);
