@@ -15,6 +15,11 @@
               "options_ajax" : "[CONTEXT_PATH]/web/json/plugin/org.joget.plugin.enterprise.UserOptionsBinder/service?action=getDeptOptions"
           },
           {
+              "name" : "deptIdDesc",
+              "label" : "@@form.enhancedLoadBalancedParticipant.deptIdDesc@@",
+              "type" : "TextField"
+          },
+          {
               "name" : "groupId",
               "label" : "@@form.enhancedLoadBalancedParticipant.groupId@@",
               "type" : "SelectBox",

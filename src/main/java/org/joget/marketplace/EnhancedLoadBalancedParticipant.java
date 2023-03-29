@@ -10,6 +10,7 @@ import org.joget.workflow.model.WorkflowActivity;
 import org.joget.workflow.model.service.WorkflowManager;
 import org.joget.workflow.model.service.WorkflowUserManager;
 import org.joget.workflow.util.WorkflowUtil;
+import org.joget.directory.model.Group;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,6 +46,7 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
         String sql =  null;
         String userListString = "";
         Collection<User> userListToRemove = new ArrayList<User>();
+        Collection<User> CoordenadoresToRemove = new ArrayList<User>();
         String connectionString = null;
 
         //Get current user's role
@@ -53,6 +55,7 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
         //Get user defined plugin configurations
         String orgId = (String) properties.get("orgId");
         String deptId = (String) properties.get("deptId");
+        String deptIdDesc = (String) properties.get("deptIdDesc");
 	String groupId = (String) properties.get("groupId");
 	String noChooseCurrentUser = (String) properties.get("getChoiceCurrentUser");
         String considerAppOnly = (String) properties.get("getChoiceThisApp");
@@ -70,19 +73,25 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
         boolean assignToLastLaneUser = false;
         
         //Set variables
+        //Assign to Last user option
         if(assingToLastUser == null || "".equalsIgnoreCase(assingToLastUser)){
             assingToLastUser = "false";
         }
-        sql = "SELECT COUNT(*) as flag_ferias from app_fd_j_leave where c_DateFrom <= CURDATE() and c_DateTo >= CURDATE() and c_ApplicantUsername = ? and c_LeaveStatus = 'Approved'"; 
         
-        LogUtil.info("Assign to?", "Assign to previous user?: " + assingToLastUser);
-        LogUtil.info("Application", "Last Lane performer: " + LastLanePerformer);
-        LogUtil.info("Application", "Databse Type: " + databaseType + " | Database Address: " + databaseAddress + " | Database Port: " + databasePort + " | Database User: " + databaseUser + " | Database Pass: " + databasePass);
-
+        if(deptId == null || "".equalsIgnoreCase(deptId)){
+            deptId = deptIdDesc;
+        }
+        
+        sql = "SELECT COUNT(*) as flag_ferias from app_fd_lista_ferias where STR_TO_DATE(c_data_inicio_ferias, \"%d-%m-%Y\") <= Date(CURDATE()) and STR_TO_DATE(c_data_fim_ferias, \"%d-%m-%Y\") >= Date(CURDATE()) and c_nome_utilizador = ? and c_estado = 'aprovado'"; 
+        
+        if("true".equalsIgnoreCase(debugMode)){
+            LogUtil.info("Plug In - Load Banlancer Partcipant", "Last Lane User: " + assingToLastUser);
+            LogUtil.info("Plug In", "deptId: " + deptId);
+        }
+        
         //Configure connection string acording to the configuration information
         if(databaseType.equals("mySql")){
             connectionString = "jdbc:mysql://"+ databaseAddress +":"+ databasePort +"/jwdb?characterEncoding=UTF-8";
-            LogUtil.info("Application", "ConnectionString: " + connectionString);
         }else{
             LogUtil.info("Application", "Database Not compatible with the plugin");
         }
@@ -117,18 +126,13 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
                 try{
                     PreparedStatement stmt = con.prepareStatement(sql);
                     stmt.setString(1, LastLanePerformer);
-                    LogUtil.info("Application", "Query: " + sql);
                     ResultSet rs = stmt.executeQuery();
-                    LogUtil.info("Application", "Successfully queried database: ");
-
+                    
                     //Add to a list to remove the rusers thar are absent
                     while (rs.next()) {
-                        LogUtil.info("Application", rs.getString(1));
                         if( rs.getString(1).equals("0") == false){
-                            LogUtil.info("Application", "Last lane user absent");
                             assignToLastLaneUser = false;
                         }else{
-                            LogUtil.info("Application", "Last lane user available");
                             assignToLastLaneUser = true;
                         }
                     }
@@ -140,7 +144,6 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
                 if (con !=null) {
                     try{
                        con.close(); 
-                       LogUtil.info("Application", "Closed connection to database");
                     }catch(Exception close){
                         LogUtil.error("Application",close, "Error closing connection to database");
                     }
@@ -148,7 +151,7 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
                 }
 
                 if(assignToLastLaneUser == true){
-                    LogUtil.info("BeanShell Assign to", "Assign to previous user: " + LastLanePerformer);
+                    LogUtil.info("BeanShell Assign to", "Assign to previous lane user: " + LastLanePerformer);
                     assignTo = LastLanePerformer;
                     assignees.add(assignTo);
                     return assignees;
@@ -160,6 +163,31 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
         
         //Get users of the selection as a list, sort by first name
         Collection<User> userList = directoryManager.getUsers(null, orgId, deptId, null, groupId, null, null, "firstName", false, null, null);
+        
+        //Remove "Coordenadores"
+        boolean inGroup = false;
+        String groupUserId = "Coordenador";
+        for (Object u : userList) {
+            User user = (User) u;
+            Collection<Group> groups = directoryManager.getGroupByUsername(user.getUsername());
+            if (groups != null) {
+                inGroup = false;
+                for (Group g : groups) {
+                    if (groupUserId.equals(g.getId())) {
+                        if("true".equalsIgnoreCase(debugMode)){
+                            LogUtil.info(this.getClass().getName(), "Remover Coordenador - Username: " + user.getUsername());
+                        }
+                        inGroup = true;
+                    }
+                }
+                if (inGroup == true){
+                    CoordenadoresToRemove.add(user);
+                }
+            }
+        }
+        userList.removeAll(CoordenadoresToRemove);
+        
+        
         if("true".equalsIgnoreCase(debugMode)){
             for (Object u : userList) {
                     User user = (User) u;
@@ -175,8 +203,6 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
                 Class.forName("com.mysql.jdbc.Driver").newInstance();
                 //con = DriverManager.getConnection("jdbc:mysql://localhost:3307/jwdb?characterEncoding=UTF-8", "root", "");
                 con = DriverManager.getConnection(connectionString, databaseUser, databasePass);
-                
-                LogUtil.info("Application", "Successfully connected to database");
             }catch(Exception e){
                 LogUtil.error("Application",e, "Error connecting to database");
             }
@@ -189,15 +215,11 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
                     
                     PreparedStatement stmt = con.prepareStatement(sql);
                     stmt.setString(1, user.getUsername());
-                    LogUtil.info("Application", "Query: " + sql);
                     ResultSet rs = stmt.executeQuery();
-                    LogUtil.info("Application", "Successfully queried database: ");
                     
                     //Add to a list to remove the rusers thar are absent
                     while (rs.next()) {
-                        LogUtil.info("Application", rs.getString(1));
                         if( rs.getString(1).equals("0") == false){
-                            LogUtil.info("Application", "Entrei");
                             userListToRemove.add(user);
                         }
                     }
@@ -214,7 +236,6 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
             if (con !=null) {
                 try{
                    con.close(); 
-                   LogUtil.info("Application", "Closed connection to database");
                 }catch(Exception close){
                     LogUtil.error("Application",close, "Error closing connection to database");
                 }
