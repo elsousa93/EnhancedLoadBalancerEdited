@@ -301,7 +301,53 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
                     workflowUserManager.setCurrentThreadUser(user.getUsername());
 
                     //get open assignment count of the current user
-                    userAssignmentSize = workflowManager.getAssignmentSize(packageId, null, null);
+                    if(deptId.contains("_CNT_")){
+                        userAssignmentSize = 0;
+                        sql = "SELECT count(sp.Id) as ProcessosAtivos FROM shkprocesses sp JOIN app_fd_processos p on sp.ActivityRequesterProcessId = p.id LEFT JOIN shkprocessstates sps ON sps.oid = sp.State LEFT JOIN SHKActivities sact ON sact.ProcessId = sp.Id LEFT JOIN SHKActivityStates ssta ON ssta.oid = sact.State LEFT JOIN SHKAssignmentsTable sass ON sact.Id = sass.ActivityId LEFT JOIN app_fd_detalhe_processo dp ON dp.id = p.c_detalhe_processo WHERE sps.KeyValue LIKE 'open.running' AND (ssta.KeyValue LIKE 'open.not_running.not_started' OR ssta.KeyValue LIKE 'open.running') AND (c_estado_contratacao is null or (c_estado_contratacao <> 'PND' AND c_estado_contratacao <> 'PNDEQ')) AND sass.resourceid LIKE ?"; 
+                        
+                        //LS - Open DB
+                        try{
+                            Class.forName("com.mysql.jdbc.Driver").newInstance();
+                            //con = DriverManager.getConnection("jdbc:mysql://localhost:3307/jwdb?characterEncoding=UTF-8", "root", "");
+                            con = DriverManager.getConnection(connectionString, databaseUser, databasePass);
+                        }catch(Exception e){
+                            LogUtil.error("Application",e, "Error connecting to database");
+                        }
+                    
+                        //LS - Querie to get if a certain user is absent
+                        try{
+
+
+                            PreparedStatement stmt = con.prepareStatement(sql);
+                            stmt.setString(1, user.getUsername());
+                            ResultSet rs = stmt.executeQuery();
+
+                            //Add to a list to remove the rusers thar are absent
+                            while (rs.next()) {
+                                userAssignmentSize = Integer.parseInt(rs.getString(1));
+                            }
+
+                        }catch(Exception runningQuery){
+                            LogUtil.error("Application",runningQuery, "Error executing query: " + sql);
+                        }
+                        LogUtil.info(this.getClass().getName(), "Assign to user CNT");
+                        LogUtil.info(this.getClass().getName(), "Processos ativos: " + userAssignmentSize);
+                        
+                                    //LS - Closing database
+                        if (con !=null) {
+                            try{
+                               con.close(); 
+                            }catch(Exception close){
+                                LogUtil.error("Application",close, "Error closing connection to database");
+                            }
+
+                        };
+                    }else{
+                        userAssignmentSize = workflowManager.getAssignmentSize(packageId, null, null);
+                        LogUtil.info(this.getClass().getName(), "Assign to user not from CNT");
+                        LogUtil.info(this.getClass().getName(), "Processos totais: " + userAssignmentSize);
+                    }
+                    
 
                     //Run this only once
                     //Assign first person's value first to have a value to begin comparison
