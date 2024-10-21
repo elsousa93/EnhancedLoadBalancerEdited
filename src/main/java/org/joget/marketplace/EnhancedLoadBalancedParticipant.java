@@ -91,7 +91,8 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
         
         //Configure connection string acording to the configuration information
         if(databaseType.equals("mySql")){
-            connectionString = "jdbc:mysql://"+ databaseAddress +":"+ databasePort +"/jwdb?characterEncoding=UTF-8";
+            connectionString = "jdbc:mysql://"+ databaseAddress +":"+ databasePort +"/jwdb?characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true";
+            LogUtil.info("connectionString", "connectionString" + connectionString);
         }else{
             LogUtil.info("Application", "Database Not compatible with the plugin");
         }
@@ -162,7 +163,7 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
         
         
         //Get users of the selection as a list, sort by first name
-        Collection<User> userList = directoryManager.getUsers(null, orgId, deptId, null, groupId, null, null, "firstName", false, null, null);
+        Collection<User> userList = directoryManager.getUsers(null, orgId, deptId, null, groupId, null, "1", "firstName", false, null, null);
         
         //Remove "Coordenadores"
         boolean inGroup = false;
@@ -202,6 +203,7 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
             try{
                 Class.forName("com.mysql.jdbc.Driver").newInstance();
                 //con = DriverManager.getConnection("jdbc:mysql://localhost:3307/jwdb?characterEncoding=UTF-8", "root", "");
+                LogUtil.info("connectionString", "databaseUser: " + databaseUser + "databasePass: " + databasePass);
                 con = DriverManager.getConnection(connectionString, databaseUser, databasePass);
             }catch(Exception e){
                 LogUtil.error("Application",e, "Error connecting to database");
