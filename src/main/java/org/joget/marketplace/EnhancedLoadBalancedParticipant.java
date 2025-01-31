@@ -18,6 +18,7 @@ import java.util.Collection;
 import java.util.Map;
 import org.joget.apps.app.service.AppPluginUtil;
 import java.sql.*;
+import javax.sql.DataSource;
 
 
 
@@ -40,6 +41,7 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
         WorkflowUserManager workflowUserManager = (WorkflowUserManager) AppUtil.getApplicationContext().getBean("workflowUserManager");
         WorkflowActivity workflowActivity = (WorkflowActivity) properties.get("workflowActivity");
         User currentUser = directoryManager.getUserByUsername(workflowUserManager.getCurrentUsername());
+        DataSource ds = (DataSource)AppUtil.getApplicationContext().getBean("setupDataSource"); 
         
         //LS - New variables created
         Connection con = null;
@@ -92,7 +94,7 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
         //Configure connection string acording to the configuration information
         if(databaseType.equals("mySql")){
             connectionString = "jdbc:mysql://"+ databaseAddress +":"+ databasePort +"/jwdb?characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true";
-            LogUtil.info("connectionString", "connectionString" + connectionString);
+            //LogUtil.info("connectionString", "connectionString" + connectionString);
         }else{
             LogUtil.info("Application", "Database Not compatible with the plugin");
         }
@@ -118,7 +120,9 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
                 //connect to database
                 try{
                     Class.forName("com.mysql.jdbc.Driver").newInstance();
-                    con = DriverManager.getConnection(connectionString, databaseUser, databasePass);
+                    //con = DriverManager.getConnection(connectionString, databaseUser, databasePass);
+                    con = ds.getConnection();
+
                 }catch(Exception e){
                     LogUtil.error("Application",e, "Error connecting to database");
                 }
@@ -203,8 +207,9 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
             try{
                 Class.forName("com.mysql.jdbc.Driver").newInstance();
                 //con = DriverManager.getConnection("jdbc:mysql://localhost:3307/jwdb?characterEncoding=UTF-8", "root", "");
-                LogUtil.info("connectionString", "databaseUser: " + databaseUser + "databasePass: " + databasePass);
-                con = DriverManager.getConnection(connectionString, databaseUser, databasePass);
+                //LogUtil.info("connectionString", "databaseUser: " + databaseUser + "databasePass: " + databasePass);
+                //con = DriverManager.getConnection(connectionString, databaseUser, databasePass);
+                con = ds.getConnection();
             }catch(Exception e){
                 LogUtil.error("Application",e, "Error connecting to database");
             }
@@ -298,6 +303,17 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
             //userList may be empty by now
             //Loop through all users in specified group
             try {
+
+                //LS - Open DB
+                try{
+                    Class.forName("com.mysql.jdbc.Driver").newInstance();
+                    //con = DriverManager.getConnection("jdbc:mysql://localhost:3307/jwdb?characterEncoding=UTF-8", "root", "");
+                    //con = DriverManager.getConnection(connectionString, databaseUser, databasePass);
+                    con = ds.getConnection();
+                }catch(Exception e){
+                    LogUtil.error("Application",e, "Error connecting to database");
+                }
+                
                 for (Object u : userList) {
                     User user = (User) u;
                     workflowUserManager.setCurrentThreadUser(user.getUsername());
@@ -306,20 +322,9 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
                     if(deptId.contains("_CNT_")){
                         userAssignmentSize = 0;
                         sql = "SELECT count(sp.Id) as ProcessosAtivos FROM shkprocesses sp JOIN app_fd_processos p on sp.ActivityRequesterProcessId = p.id LEFT JOIN shkprocessstates sps ON sps.oid = sp.State LEFT JOIN SHKActivities sact ON sact.ProcessId = sp.Id LEFT JOIN SHKActivityStates ssta ON ssta.oid = sact.State LEFT JOIN SHKAssignmentsTable sass ON sact.Id = sass.ActivityId LEFT JOIN app_fd_detalhe_processo dp ON dp.id = p.c_detalhe_processo WHERE sps.KeyValue LIKE 'open.running' AND (ssta.KeyValue LIKE 'open.not_running.not_started' OR ssta.KeyValue LIKE 'open.running') AND (c_estado_contratacao is null or (c_estado_contratacao <> 'PND' AND c_estado_contratacao <> 'PNDEQ')) AND sass.resourceid LIKE ?"; 
-                        
-                        //LS - Open DB
-                        try{
-                            Class.forName("com.mysql.jdbc.Driver").newInstance();
-                            //con = DriverManager.getConnection("jdbc:mysql://localhost:3307/jwdb?characterEncoding=UTF-8", "root", "");
-                            con = DriverManager.getConnection(connectionString, databaseUser, databasePass);
-                        }catch(Exception e){
-                            LogUtil.error("Application",e, "Error connecting to database");
-                        }
-                    
+
                         //LS - Querie to get if a certain user is absent
                         try{
-
-
                             PreparedStatement stmt = con.prepareStatement(sql);
                             stmt.setString(1, user.getUsername());
                             ResultSet rs = stmt.executeQuery();
@@ -334,16 +339,7 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
                         }
                         LogUtil.info(this.getClass().getName(), "Assign to user CNT");
                         LogUtil.info(this.getClass().getName(), "Processos ativos: " + userAssignmentSize);
-                        
-                                    //LS - Closing database
-                        if (con !=null) {
-                            try{
-                               con.close(); 
-                            }catch(Exception close){
-                                LogUtil.error("Application",close, "Error closing connection to database");
-                            }
 
-                        };
                     }else{
                         userAssignmentSize = workflowManager.getAssignmentSize(packageId, null, null);
                         LogUtil.info(this.getClass().getName(), "Assign to user not from CNT");
@@ -373,6 +369,14 @@ public class EnhancedLoadBalancedParticipant extends DefaultParticipantPlugin {
             } catch (Exception e) {
                 LogUtil.error(this.getClass().getName(), e, "Failed to check all users in loop");
             } finally {
+                //LS - Closing database
+                if (con !=null) {
+                    try{
+                       con.close(); 
+                    }catch(Exception close){
+                        LogUtil.error("Application",close, "Error closing connection to database");
+                    }
+                }
                 //Set back original user role
                 workflowUserManager.setCurrentThreadUser(currentThreadUser);
                 
